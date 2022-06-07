@@ -27,25 +27,6 @@ CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 python -m experiments.train multi_secti
 ```
 Options for proxy_outliers are {*none*, *other_machines*}. 
 
-After training, fine-tuneing can be done with:
-
-```bash
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 python -m experiments.train multi_section --version fine_tune --run_id 97fcd5a6e7d24a8c83f77e286384f5aa --da_task ccsa --da_lambda 1.0 --margin 0.5 --learning_rate 1e-5 --rampdown_length 0 --rampdown_start 3 --max_epochs 3 --proxy_outliers other_machines --machine_type fan
-```
-
-where the `run_id` parameter has to be replaced with the run_id of the pre-trained model from the previous step.
-
-
-## Run Density Estimation & Reconstruction Error Experiments
-
-In a similar vein, density estimation/ reconstruction error models for machine type fan can be trained with the following command:
-
-```bash
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 python -m experiments.train density --version made --architecture made --n_gaussians 1 --proxy_outliers other_sections --proxy_outlier_lambda 1.0 --margin 0.5 --consistent_with_librosa --machine_type fan
-```
-You can choose the model type by setting the `--architecture` parameter {*AE*, *MADE*, *MAF*}.
-Options for proxy_outliers are {*none*, *other_sections*, *other_sections_and_machines*}. 
-The `--consistent_with_librosa` flag ensures torchaudio returns the same results as librosa.
 
 ## Dashboard
 
