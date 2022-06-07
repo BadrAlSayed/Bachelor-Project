@@ -1,17 +1,16 @@
-# DCASE2021 Challenge - Task 2 - Machine Condition Monitoring
+# ResNet Domain Adaptation for Anomalous Sounds Detection
 
-This is our submission to task 2 of the 2021's DCASE challenge on *Unsupervised Anomalous Sound Detection for Machine Condition Monitoring under Domain Shifted Conditions*.
-For more information visit the [official DCASE website](http://dcase.community/challenge2021/task-unsupervised-detection-of-anomalous-sounds).
+
+
 
 
 ## Setup
 
-To reproduce our experiments we recommend a GPU with at least 11GB of VRAM (e.g. NVIDIA GTX 1080Ti) and at least 32 Gb of main memory.
 
 
 1. install [miniconda](https://docs.conda.io/en/latest/miniconda.html).
 2. download the [data](http://dcase.community/challenge2021/task-unsupervised-detection-of-anomalous-sounds#download)
-3. store unzipped data into folder `~/shared/DCASE2021/task2` (or set `--data_root` parameter accordingly)
+3. store unzipped data into folder `C:/Users/{yourUser}/shared/DCASE2021/task2` 
 4. change dir to root of this project
 5. run `conda env create -f environment.yaml` to install the conda environment
 6. activate the conda environment with `conda activate dcase2021_task2`
@@ -41,7 +40,7 @@ By default, the dashboard will be served at `http://127.0.0.1:5000`.
 - Noboru Harada, Daisuke Niizumi, Daiki Takeuchi, Yasunori Ohishi, Masahiro Yasuda, and Shoichiro Saito. [*ToyADMOS2: another dataset of miniature-machine operating sounds for anomalous sound detection under domain shift conditions*](https://arxiv.org/pdf/2106.02369.pdf). arXiv preprint arXiv:2106.02369, 2021.
 
 ## Citation
-If you use any parts of the implementation please cite our report:
+If you use any parts of the implementation please cite this report:
 ```
 @techreport{Primus2021DCASEChallenge,
     Author      =   {Primus, Paul and Zwifl, Martin and Widmer, Gerhard},
