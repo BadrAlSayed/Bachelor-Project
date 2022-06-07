@@ -1,13 +1,17 @@
 # coding: utf-8
-#Based on: https://github.com/kkoutini/cpjku_dcase20/blob/master/models/cp_resnet.py
 import math
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch._six import container_abcs
+from torch.nn.modules.conv import _ConvNd
 from torch.utils.checkpoint import checkpoint_sequential
+import numpy as np
 import collections.abc
 from librosa.filters import mel as librosa_mel_fn
+
+from itertools import repeat
 
 def update_dict(d, u):
     for k, v in u.items():
@@ -18,10 +22,81 @@ def update_dict(d, u):
     return d
 
 
+def _ntuple(n):
+    def parse(x):
+        if isinstance(x, container_abcs.Iterable):
+            return x
+        return tuple(repeat(x, n))
+
+    return parse
+
+
+_single = _ntuple(1)
+_pair = _ntuple(2)
+_triple = _ntuple(3)
+_quadruple = _ntuple(4)
+
+
+class Conv2dDamped(_ConvNd):
+    r"""Applies a 2D FREQUENCY DAMPED convolution over an input signal composed of several input
+    planes.
+    """
+
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1,
+                 padding=0, dilation=1, groups=1,
+                 bias=True):
+        kernel_size = _pair(kernel_size)
+        stride = _pair(stride)
+        padding = _pair(padding)
+        dilation = _pair(dilation)
+        try:
+            super(Conv2dDamped, self).__init__(
+                in_channels, out_channels, kernel_size, stride, padding, dilation,
+                False, _pair(0), groups, bias)
+        except:
+            super(Conv2dDamped, self).__init__(
+                in_channels, out_channels, kernel_size, stride, padding, dilation,
+                False, _pair(0), groups, bias, padding_mode='zeros')
+
+    def conv2d_forward(self, input, weight):
+
+        damper = get_damper(weight)
+        # print(damper)
+        return F.conv2d(input, weight * damper, self.bias, self.stride,
+                        self.padding, self.dilation, self.groups)
+
+    def forward(self, input):
+        return self.conv2d_forward(input, self.weight)
+
+
+cach_damp = {}
+
+
+def get_damper(w):
+    k = (w.shape[2], w.shape[3])
+    if cach_damp.get(k) is None:
+        t = torch.ones_like(w[0, 0]).reshape(1, 1, w.shape[2], w.shape[3])
+        center2 = (w.shape[2] - 1.) / 2
+        center3 = (w.shape[3] - 1.) / 2
+        minscale = 0.01
+        if center2 >= 1:
+            for i in range(w.shape[2]):
+                distance = np.abs(i - center2)
+                sacale = -(1 - minscale) * distance / center2 + 1.
+                t[:, :, i, :] *= sacale
+        # if center2 >= 1:
+        #     for i in range(w.shape[3]):
+        #         distance = np.abs(i - center3)
+        #         sacale = -(1 - minscale) * distance/center3 + 1.
+        #         t[:, :, :, i] *= sacale
+        cach_damp[k] = t.detach()
+    return cach_damp.get(k)
+
 
 def initialize_weights(module):
-    if isinstance(module, nn.Conv2d):
+    if isinstance(module, Conv2dDamped):
         nn.init.kaiming_normal_(module.weight.data, mode='fan_in', nonlinearity="relu")
+
         # nn.init.kaiming_normal_(module.weight.data, mode='fan_out')
     elif isinstance(module, nn.BatchNorm2d):
         module.weight.data.fill_(1)
@@ -35,19 +110,18 @@ layer_index_total = 0
 
 
 def initialize_weights_fixup(module):
-    # source: https://github.com/ajbrock/BoilerPlate/blob/master/Models/fixup.py
     if isinstance(module, BasicBlock):
         # He init, rescaled by Fixup multiplier
         b = module
         n = b.conv1.kernel_size[0] * b.conv1.kernel_size[1] * b.conv1.out_channels
-        #print(b.layer_index, math.sqrt(2. / n), layer_index_total ** (-0.5))
+        print(b.layer_index, math.sqrt(2. / n), layer_index_total ** (-0.5))
         b.conv1.weight.data.normal_(0, (layer_index_total ** (-0.5)) * math.sqrt(2. / n))
         b.conv2.weight.data.zero_()
         if b.shortcut._modules.get('conv') is not None:
             convShortcut = b.shortcut._modules.get('conv')
             n = convShortcut.kernel_size[0] * convShortcut.kernel_size[1] * convShortcut.out_channels
             convShortcut.weight.data.normal_(0, math.sqrt(2. / n))
-    if isinstance(module, nn.Conv2d):
+    if isinstance(module, Conv2dDamped):
         pass
         # nn.init.kaiming_normal_(module.weight.data, mode='fan_in', nonlinearity="relu")
         # nn.init.kaiming_normal_(module.weight.data, mode='fan_out')
@@ -68,6 +142,7 @@ def calc_padding(kernal):
         return [k // 3 for k in kernal]
 
 
+
 class BasicBlock(nn.Module):
     expansion = 1
 
@@ -76,7 +151,7 @@ class BasicBlock(nn.Module):
         global layer_index_total
         self.layer_index = layer_index_total
         layer_index_total = layer_index_total + 1
-        self.conv1 = nn.Conv2d(
+        self.conv1 = Conv2dDamped(
             in_channels,
             out_channels,
             kernel_size=k1,
@@ -84,7 +159,7 @@ class BasicBlock(nn.Module):
             padding=calc_padding(k1),
             bias=False)
         self.bn1 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(
+        self.conv2 = Conv2dDamped(
             out_channels,
             out_channels,
             kernel_size=k2,
@@ -97,7 +172,7 @@ class BasicBlock(nn.Module):
         if in_channels != out_channels:
             self.shortcut.add_module(
                 'conv',
-                nn.Conv2d(
+                Conv2dDamped(
                     in_channels,
                     out_channels,
                     kernel_size=1,
@@ -114,7 +189,6 @@ class BasicBlock(nn.Module):
         return y
 
 
-
 class Network(nn.Module):
     def __init__(self, config):
         super(Network, self).__init__()
@@ -128,6 +202,7 @@ class Network(nn.Module):
         self.pooling_padding = config.get("pooling_padding", 0) or 0
         self.use_raw_spectograms = config.get("use_raw_spectograms") or False
         self.apply_softmax = config.get("apply_softmax") or False
+        self.return_embed = config.get("return_embed") or False
 
         assert block_type in ['basic', 'bottleneck']
         if self.use_raw_spectograms:
@@ -147,7 +222,8 @@ class Network(nn.Module):
         n_blocks_per_stage = [n_blocks_per_stage, n_blocks_per_stage, n_blocks_per_stage]
 
         if config.get("n_blocks_per_stage") is not None:
-            print("n_blocks_per_stage is specified ignoring the depth param, nc=" + str(config.get("n_channels")))
+            print(
+                "n_blocks_per_stage is specified ignoring the depth param, nc=" + str(config.get("n_channels")))
             n_blocks_per_stage = config.get("n_blocks_per_stage")
 
         n_channels = config.get("n_channels")
@@ -160,7 +236,7 @@ class Network(nn.Module):
         if config.get("grow_a_lot"):
             n_channels[2] = base_channels * 8 * block.expansion
 
-        self.in_c = nn.Sequential(nn.Conv2d(
+        self.in_c = nn.Sequential(Conv2dDamped(
             input_shape[1],
             n_channels[0],
             kernel_size=5,
@@ -191,16 +267,21 @@ class Network(nn.Module):
                 k1s=config['stage3']['k1s'], k2s=config['stage3']['k2s'])
 
         ff_list = []
-
-        ff_list += [nn.Conv2d(
-            n_channels[2],
-            n_classes,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-            bias=False),
-            nn.BatchNorm2d(n_classes),
-        ]
+        if config.get("attention_avg"):
+            if config.get("attention_avg") == "sum_all":
+                ff_list.append(AttentionAvg(n_channels[2], n_classes, sum_all=True))
+            else:
+                ff_list.append(AttentionAvg(n_channels[2], n_classes, sum_all=False))
+        else:
+            ff_list += [Conv2dDamped(
+                n_channels[2],
+                n_classes,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+                bias=False),
+                nn.BatchNorm2d(n_classes),
+            ]
 
         self.stop_before_global_avg_pooling = False
         if config.get("stop_before_global_avg_pooling"):
@@ -211,11 +292,17 @@ class Network(nn.Module):
         self.feed_forward = nn.Sequential(
             *ff_list
         )
+        # # compute conv feature size
+        # with torch.no_grad():
+        #     self.feature_size = self._forward_conv(
+        #         torch.zeros(*input_shape)).view(-1).shape[0]
+        #
+        # self.fc = nn.Linear(self.feature_size, n_classes)
 
         # initialize weights
         if config.get("weight_init") == "fixup":
             self.apply(initialize_weights)
-            if isinstance(self.feed_forward[0], nn.Conv2d):
+            if isinstance(self.feed_forward[0], Conv2dDamped):
                 self.feed_forward[0].weight.data.zero_()
             self.apply(initialize_weights_fixup)
         else:
@@ -243,6 +330,11 @@ class Network(nn.Module):
                                      , nn.MaxPool2d(2, 2, padding=self.pooling_padding))
         return stage
 
+    def half_damper(self):
+        global cach_damp
+        for k in cach_damp.keys():
+            cach_damp[k] = cach_damp[k].half()
+
     def _forward_conv(self, x):
         global first_RUN
 
@@ -266,8 +358,14 @@ class Network(nn.Module):
     def forward(self, x):
         global first_RUN
         if self.use_raw_spectograms:
-            raise RuntimeError("Not supported ")
+            if first_RUN: print("raw_x:", x.size())
+            x = torch.log10(torch.sqrt((x * x).sum(dim=3)))
+            if first_RUN: print("log10_x:", x.size())
+            x = torch.matmul(self.mel_basis, x)
+            if first_RUN: print("mel_basis_x:", x.size())
+            x = x.unsqueeze(1)
         e = self._forward_conv(x)
+        features = x
         x = self.feed_forward(e)
         if first_RUN: print("feed_forward:", x.size())
         if self.stop_before_global_avg_pooling:
@@ -279,10 +377,14 @@ class Network(nn.Module):
         if self.apply_softmax:
             logit = torch.softmax(logit, 1)
         first_RUN = False
+        if self.return_embed:
+            return logit, features
         return logit, e
 
 
-def get_model_based_on_rho(rho_t=6, rho_f=6, base_channels=128, blocks='444', n_classes=10, arch="cp_speech_resnet", config_only=False, input_shape=(10, 1, -1, -1), model_config_overrides={}):
+
+
+def get_model_based_on_rho(rho_t=12, rho_f=12, base_channels=128, blocks='444', n_classes=10, arch="cp_speech_resnet", config_only=False, input_shape=(10, 1, -1, -1), model_config_overrides={}):
     ekrf_fr = rho_f - 7
     ekrf_time = rho_t - 7
     global model_config
@@ -327,9 +429,7 @@ def get_model_based_on_rho(rho_t=6, rho_f=6, base_channels=128, blocks='444', n_
         "use_bn": True,
         "weight_init": "somethingelse"#"fixup"
     }
-
-
-    # override model_config
+   # override model_config
     if config_only:
         return model_config
 

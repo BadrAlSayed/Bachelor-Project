@@ -9,8 +9,8 @@ class ResNet(torch.nn.Module):
             input_shape,
             n_classes=1,
             base_channels=128,
-            rho_t=5,
-            rho_f=5,
+            rho_t=12,
+            rho_f=12,
             **kwargs
     ):
         super().__init__()
