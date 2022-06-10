@@ -1,6 +1,5 @@
 # ResNet Domain Adaptation for Anomalous Sounds Detection
-
-
+My bachelor project code where I added modifcations on the DCASE 2021 task 2 code submmited by Paul Primus.
 
 
 
