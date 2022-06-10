@@ -32,7 +32,7 @@ To view the training progress/ results, change directory to the log directory (`
 By default, the dashboard will be served at `http://127.0.0.1:5000`.
 
 ## My Results
-Here is the [google drive link] with my results(https://drive.google.com/drive/folders/15HczFHJsUAZAzYYQWwg2C7HMEjYFWkk0?usp=sharing).
+Here is the [google drive link](https://drive.google.com/drive/folders/15HczFHJsUAZAzYYQWwg2C7HMEjYFWkk0?usp=sharing) with my results.
 
 ## References
 
