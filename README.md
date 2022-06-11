@@ -21,7 +21,7 @@ My bachelor project code where I added modifcations on the DCASE 2021 task 2 cod
 To train a classifiers based on auxiliary classification (in this example for machine type fan), simply run:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 python -m experiments.train multi_section --version auxiliary_classification --proxy_outliers other_machines --proxy_outlier_lambda 0.5 --machine_type fan
+python -m experiments.train multi_section --version auxiliary_classification --proxy_outliers other_machines --proxy_outlier_lambda 0.5 --machine_type fan
 ```
 Options for proxy_outliers are {*none*, *other_machines*}. 
 
