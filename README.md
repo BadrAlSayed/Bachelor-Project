@@ -1,17 +1,15 @@
-# DCASE2021 Challenge - Task 2 - Machine Condition Monitoring
+# ResNet Domain Adaptation for Anomalous Sounds Detection
+My bachelor project code where I added modifcations on the DCASE 2021 task 2 code submmited by Paul Primus.
 
-This is our submission to task 2 of the 2021's DCASE challenge on *Unsupervised Anomalous Sound Detection for Machine Condition Monitoring under Domain Shifted Conditions*.
-For more information visit the [official DCASE website](http://dcase.community/challenge2021/task-unsupervised-detection-of-anomalous-sounds).
 
 
 ## Setup
 
-To reproduce our experiments we recommend a GPU with at least 11GB of VRAM (e.g. NVIDIA GTX 1080Ti) and at least 32 Gb of main memory.
 
 
 1. install [miniconda](https://docs.conda.io/en/latest/miniconda.html).
 2. download the [data](http://dcase.community/challenge2021/task-unsupervised-detection-of-anomalous-sounds#download)
-3. store unzipped data into folder `~/shared/DCASE2021/task2` (or set `--data_root` parameter accordingly)
+3. store unzipped data into folder `C:/Users/{yourUser}/shared/DCASE2021/task2` 
 4. change dir to root of this project
 5. run `conda env create -f environment.yaml` to install the conda environment
 6. activate the conda environment with `conda activate dcase2021_task2`
@@ -27,31 +25,14 @@ CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 python -m experiments.train multi_secti
 ```
 Options for proxy_outliers are {*none*, *other_machines*}. 
 
-After training, fine-tuneing can be done with:
-
-```bash
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 python -m experiments.train multi_section --version fine_tune --run_id 97fcd5a6e7d24a8c83f77e286384f5aa --da_task ccsa --da_lambda 1.0 --margin 0.5 --learning_rate 1e-5 --rampdown_length 0 --rampdown_start 3 --max_epochs 3 --proxy_outliers other_machines --machine_type fan
-```
-
-where the `run_id` parameter has to be replaced with the run_id of the pre-trained model from the previous step.
-
-
-## Run Density Estimation & Reconstruction Error Experiments
-
-In a similar vein, density estimation/ reconstruction error models for machine type fan can be trained with the following command:
-
-```bash
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 python -m experiments.train density --version made --architecture made --n_gaussians 1 --proxy_outliers other_sections --proxy_outlier_lambda 1.0 --margin 0.5 --consistent_with_librosa --machine_type fan
-```
-You can choose the model type by setting the `--architecture` parameter {*AE*, *MADE*, *MAF*}.
-Options for proxy_outliers are {*none*, *other_sections*, *other_sections_and_machines*}. 
-The `--consistent_with_librosa` flag ensures torchaudio returns the same results as librosa.
 
 ## Dashboard
 
 To view the training progress/ results, change directory to the log directory (`cd logs`) and start the mlflow dashboard with `mlflow ui`.
 By default, the dashboard will be served at `http://127.0.0.1:5000`.
 
+## My Results
+Here is the [google drive link](https://drive.google.com/drive/folders/15HczFHJsUAZAzYYQWwg2C7HMEjYFWkk0?usp=sharing) with my results.
 
 ## References
 
@@ -60,7 +41,7 @@ By default, the dashboard will be served at `http://127.0.0.1:5000`.
 - Noboru Harada, Daisuke Niizumi, Daiki Takeuchi, Yasunori Ohishi, Masahiro Yasuda, and Shoichiro Saito. [*ToyADMOS2: another dataset of miniature-machine operating sounds for anomalous sound detection under domain shift conditions*](https://arxiv.org/pdf/2106.02369.pdf). arXiv preprint arXiv:2106.02369, 2021.
 
 ## Citation
-If you use any parts of the implementation please cite our report:
+If you use any parts of the implementation please cite this report:
 ```
 @techreport{Primus2021DCASEChallenge,
     Author      =   {Primus, Paul and Zwifl, Martin and Widmer, Gerhard},
